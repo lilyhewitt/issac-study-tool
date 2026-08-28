@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>备考提示词生成器 · Study Prompt Builder</title>
+<style>
+  :root{
+    --ink:#17313a; --ink-soft:#5a6b73; --line:#d6e0dd;
+    --teal:#1f6f6a; --teal-deep:#134f4b; --teal-tint:#e8f2f0;
+    --amber:#b8860b; --amber-tint:#f7efd9;
+    --paper:#f3f7f5; --card:#ffffff; --warn:#b5453b;
+    --focus:#1f6f6a;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:"Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    line-height:1.55; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1160px; margin:0 auto; padding:26px 22px 60px;}
+
+  /* header */
+  header.top{margin-bottom:22px;}
+  .eyebrow{display:flex; gap:8px; align-items:center; flex-wrap:wrap; font-size:12.5px; color:var(--teal); font-weight:700; letter-spacing:.3px; margin-bottom:10px;}
+  .eyebrow .dot{width:5px;height:5px;border-radius:50%;background:var(--amber);}
+  h1{font-size:29px; margin:0 0 6px; letter-spacing:-.3px; font-weight:800;}
+  h1 .en{color:var(--ink-soft); font-weight:600; font-size:18px;}
+  .sub{color:var(--ink-soft); font-size:14.5px; max-width:640px;}
+  .steps{display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;}
+  .steps .s{display:flex; align-items:center; gap:8px; background:var(--card); border:1px solid var(--line); border-radius:30px; padding:6px 14px 6px 7px; font-size:13px; color:var(--ink-soft);}
+  .steps .s b{color:var(--ink);}
+  .steps .n{width:22px;height:22px;border-radius:50%;background:var(--teal);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;}
+
+  /* mode toggle */
+  .modes{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:22px 0 6px;}
+  .mode{background:var(--card); border:1.5px solid var(--line); border-radius:14px; padding:15px 17px; cursor:pointer; text-align:left; transition:border-color .15s, box-shadow .15s, background .15s;}
+  .mode:hover{border-color:var(--teal);}
+  .mode.active{border-color:var(--teal); background:var(--teal-tint); box-shadow:0 0 0 3px rgba(31,111,106,.12);}
+  .mode .mt{font-size:16px; font-weight:800; display:flex; align-items:center; gap:8px;}
+  .mode .mt .pill{font-size:11px; font-weight:700; padding:1px 9px; border-radius:20px; background:var(--amber-tint); color:var(--amber);}
+  .mode.active .mt .pill{background:var(--teal); color:#fff;}
+  .mode .md{font-size:12.5px; color:var(--ink-soft); margin-top:4px;}
+
+  /* layout */
+  .grid{display:grid; grid-template-columns:1.05fr .95fr; gap:22px; margin-top:22px; align-items:start;}
+  @media(max-width:860px){ .grid{grid-template-columns:1fr;} .modes{grid-template-columns:1fr;} }
+
+  /* form cards */
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px 18px; margin-bottom:14px;}
+  .card > .q{font-size:14.5px; font-weight:700; margin-bottom:3px; display:flex; align-items:baseline; gap:7px;}
+  .card > .q .req{font-size:11px; color:var(--warn); font-weight:700;}
+  .card > .q .opt{font-size:11px; color:var(--ink-soft); font-weight:600;}
+  .card .hint{font-size:12px; color:var(--ink-soft); margin-bottom:9px;}
+
+  .opts{display:flex; flex-wrap:wrap; gap:8px;}
+  .opts label{position:relative;}
+  .opts input{position:absolute; opacity:0; pointer-events:none;}
+  .opts .chip{display:inline-block; border:1.5px solid var(--line); border-radius:30px; padding:7px 15px; font-size:13.5px; cursor:pointer; transition:all .12s; user-select:none; background:#fff;}
+  .opts .chip:hover{border-color:var(--teal);}
+  .opts input:checked + .chip{background:var(--teal); border-color:var(--teal); color:#fff; font-weight:600;}
+  .opts input:focus-visible + .chip{outline:2px solid var(--focus); outline-offset:2px;}
+
+  input[type=text], textarea{
+    width:100%; border:1.5px solid var(--line); border-radius:10px; padding:10px 12px;
+    font-family:inherit; font-size:14px; color:var(--ink); background:#fff; resize:vertical;
+  }
+  input[type=text]:focus, textarea:focus{outline:none; border-color:var(--teal); box-shadow:0 0 0 3px rgba(31,111,106,.12);}
+  textarea{min-height:64px; line-height:1.5;}
+  .inline2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  @media(max-width:520px){ .inline2{grid-template-columns:1fr;} }
+
+  /* topic hints */
+  .topichints{margin-top:10px;}
+  .topichints .thlabel{font-size:11.5px; color:var(--ink-soft); margin-bottom:6px;}
+  .topichints .thlabel b{color:var(--amber);}
+  .topichints .thwrap{display:flex; flex-wrap:wrap; gap:6px;}
+  .topichints .thchip{border:1px dashed var(--teal); color:var(--teal); background:var(--teal-tint);
+    border-radius:20px; padding:4px 11px 4px 9px; font-size:12.5px; cursor:pointer; transition:all .12s; user-select:none;}
+  .topichints .thchip:hover{background:var(--teal); color:#fff; border-style:solid;}
+  .topichints .thchip::before{content:"+ "; font-weight:800;}
+
+  /* output panel */
+  .out{position:sticky; top:18px;}
+  .outbar{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px;}
+  .outbar h2{font-size:16px; margin:0; font-weight:800; display:flex; align-items:center; gap:8px;}
+  .outbar h2 .en{color:var(--ink-soft); font-weight:600; font-size:12.5px;}
+  .copybtn{border:none; background:var(--teal); color:#fff; font-weight:700; font-size:14px; padding:10px 20px; border-radius:10px; cursor:pointer; transition:background .15s, transform .05s; font-family:inherit;}
+  .copybtn:hover{background:var(--teal-deep);}
+  .copybtn:active{transform:translateY(1px);}
+  .copybtn.done{background:var(--amber);}
+  pre.output{
+    background:#0f2b2a; color:#e8f2f0; border-radius:14px; padding:16px 16px;
+    font-family:"SF Mono","Cascadia Code","Consolas","PingFang SC",monospace;
+    font-size:12px; line-height:1.62; white-space:pre-wrap; word-break:break-word;
+    max-height:70vh; overflow:auto; margin:0; border:1px solid #143e3b;
+  }
+  pre.output::-webkit-scrollbar{width:9px;} pre.output::-webkit-scrollbar-thumb{background:#2b524f;border-radius:8px;}
+  .tipline{font-size:12px; color:var(--ink-soft); margin-top:10px; display:flex; gap:7px; align-items:flex-start;}
+  .tipline b{color:var(--teal);}
+
+  /* collapsible guide / faq */
+  details.guide{background:var(--card); border:1px solid var(--line); border-radius:14px; margin:0 0 18px; overflow:hidden;}
+  details.guide > summary{list-style:none; cursor:pointer; padding:14px 18px; font-weight:800; font-size:15px; display:flex; align-items:center; gap:9px; color:var(--teal);}
+  details.guide > summary::-webkit-details-marker{display:none;}
+  details.guide > summary .chev{margin-left:auto; transition:transform .2s; color:var(--ink-soft); font-weight:400;}
+  details.guide[open] > summary .chev{transform:rotate(90deg);}
+  details.guide .gbody{padding:2px 18px 16px; font-size:13.5px; color:var(--ink); line-height:1.65;}
+  details.guide .gbody ol{margin:8px 0; padding-left:20px;} details.guide .gbody li{margin:5px 0;}
+  details.guide .gbody .qa{margin:11px 0;}
+  details.guide .gbody .qa .qq{font-weight:700; color:var(--ink);}
+  details.guide .gbody .qa .aa{color:var(--ink-soft); margin-top:2px;}
+  details.guide .gbody .rec{background:var(--teal-tint); border:1px solid #bfe0db; border-radius:9px; padding:10px 13px; margin:11px 0; font-size:13px; line-height:1.6;}
+  details.guide .gbody .rec.warn{background:var(--amber-tint); border-color:#ecd9a0; color:#6b5300;}
+  details.guide .gbody .rec b{color:var(--teal-deep);}
+  details.guide .gbody .rec.warn b{color:#8a6508;}
+  details.guide.faq > summary{color:var(--ink);}
+
+  /* next steps box under output */
+  .nextbox{background:var(--teal-tint); border:1px solid #bfe0db; border-radius:12px; padding:13px 15px; margin-top:12px;}
+  .nextbox h3{margin:0 0 7px; font-size:13.5px; color:var(--teal-deep); font-weight:800;}
+  .nextbox ol{margin:0 0 10px; padding-left:20px; font-size:13px; line-height:1.7;} .nextbox ol b{color:var(--teal-deep);}
+  .ailinks{display:flex; gap:9px; flex-wrap:wrap;}
+  .ailink{display:inline-flex; align-items:center; gap:6px; text-decoration:none; font-weight:700; font-size:13px; padding:8px 15px; border-radius:9px; border:1.5px solid var(--teal); color:var(--teal); background:#fff; transition:all .12s;}
+  .ailink:hover{background:var(--teal); color:#fff;}
+  .dlbtn{border:1.5px solid var(--line); background:#fff; color:var(--ink); font-weight:600; font-size:13px; padding:8px 15px; border-radius:9px; cursor:pointer; font-family:inherit; transition:all .12s;}
+  .dlbtn:hover{border-color:var(--teal); color:var(--teal);}
+  .uploadwarn{background:var(--amber-tint); border:1px solid #ecd9a0; border-radius:10px; padding:9px 13px; margin-top:11px; font-size:12.5px; color:#7a5c00; display:flex; gap:8px; align-items:flex-start;}
+  .uploadwarn b{color:#8a6508;}
+  .qcbox{background:#fff; border:1.5px solid var(--amber); border-radius:12px; padding:13px 15px; margin-top:12px;}
+  .qcbox h3{margin:0 0 5px; font-size:13.5px; color:var(--amber); font-weight:800;}
+  .qcbox .qcnote{margin:0 0 9px; font-size:12px; color:var(--ink-soft);}
+  .qcitem{display:flex; gap:8px; align-items:flex-start; font-size:13px; margin:7px 0; cursor:pointer;}
+  .qcitem input{margin-top:3px; flex:0 0 auto; accent-color:var(--amber);}
+  .qcitem b{color:var(--ink);}
+  .qcbox .qctip{margin:9px 0 0; font-size:12px; color:var(--teal-deep); background:var(--teal-tint); border-radius:8px; padding:7px 10px;}
+
+  footer{margin-top:34px; padding-top:16px; border-top:1px solid var(--line); font-size:12px; color:var(--ink-soft); text-align:center;}
+  .hide{display:none !important;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="eyebrow"><span>新加坡小学 P1–P6</span><span class="dot"></span><span>选模式</span><span class="dot"></span><span>填问卷</span><span class="dot"></span><span>复制去用</span></div>
+    <h1>新加坡小学备考提示词生成器 <span class="en">SG Primary Study Prompt Builder</span></h1>
+    <p class="sub">给孩子做复习材料的提示词，点一点、填一填就生成。不用懂技术——把生成的文字复制给 AI（如 Claude / ChatGPT），它就会照<b>新加坡本地规范</b>（model method、PSLE 题型、SBB 分层、母语体系等）帮你出练习卷、模拟卷、辅导材料。选了科目会自动给常见考点，点一下就填进去。</p>
+    <div class="steps">
+      <div class="s"><span class="n">1</span><span>选<b>用途</b>（考前 / 平时）</span></div>
+      <div class="s"><span class="n">2</span><span>填<b>问卷</b>（能填多少填多少）</span></div>
+      <div class="s"><span class="n">3</span><span>点<b>复制</b>，粘贴给 AI</span></div>
+      <button class="dlbtn" style="margin-left:auto" onclick="resetAll()">↺ 清空重填</button>
+    </div>
+  </header>
+
+  <!-- GETTING STARTED (feature 3) -->
+  <details class="guide" id="startGuide">
+    <summary>👋 第一次用？点这里看怎么用 <span class="chev">›</span></summary>
+    <div class="gbody">
+      这个网页帮你写一段“提示词”（就是给 AI 的一段话）。你填一填、点复制，把它发给 AI，AI 就会帮你做孩子的练习卷、辅导材料等。
+      <div class="rec">
+        <b>💡 用哪个 AI？建议用 Claude（免费版就行）。</b><br>
+        因为这套材料要 AI 生成<b>可下载、可打印的 PDF 练习卷</b>——Claude 免费版自带“文件创建”能做出来；ChatGPT 免费版做这个很吃力。打开 <b>claude.ai</b> 注册免费账号即可（下面复制完有直达按钮）。
+      </div>
+      <ol>
+        <li><b>选用途</b>：平时复习选「日常复习」；快考试了选「考前冲刺」。</li>
+        <li><b>填问卷</b>：能填多少填多少，不会填的留空也行。</li>
+        <li><b>点“复制”</b>，打开 Claude，粘贴发送。</li>
+        <li>Claude 会<b>先问你要材料</b>——把孩子的<b>考纲 / 课本 / 卷子拍照传上去</b>（一次最多 20 张）。没有也能做。</li>
+        <li>它会<b>先给一道样题</b>让你看难度，你说“可以／再难点／再简单点”，再出整套，给你可下载的 PDF。</li>
+      </ol>
+      <div class="rec warn">
+        <b>⚠ 免费版有用量限制</b>（每隔几小时有次数上限）。所以<b>一次专注做一两份就好</b>，别一口气让它做全套七八份，容易用超；用超了等几小时再来。
+      </div>
+      不用懂技术，也不会泄露孩子隐私——材料里不会写任何标签或私人信息。
+    </div>
+  </details>
+
+  <!-- MODE -->
+  <div class="modes" role="tablist" aria-label="选择用途">
+    <button type="button" class="mode active" id="mode-daily" data-mode="daily" role="tab" aria-selected="true" onclick="setMode('daily')">
+      <div class="mt">日常复习 <span class="pill">平时用</span></div>
+      <div class="md">每周 / 每月巩固。侧重讲概念、回炉错题；可由不懂英文的家人陪做。</div>
+    </button>
+    <button type="button" class="mode" id="mode-exam" data-mode="exam" role="tab" aria-selected="false" onclick="setMode('exam')">
+      <div class="mt">考前冲刺 <span class="pill">临考用</span></div>
+      <div class="md">临近考试。诊断薄弱点、抢分、拿分技巧、分天计划。适用多学科。</div>
+    </button>
+  </div>
+
+  <div class="grid">
+    <!-- ============ FORM ============ -->
+    <div class="form">
+
+      <!-- shared: grade + subject -->
+      <div class="card">
+        <div class="q">年级 <span class="req">＊必填</span></div>
+        <div class="hint">新加坡小学 P1–P6。</div>
+        <div class="opts" id="gradeOpts">
+          <label><input type="radio" name="grade" value="小一 P1" onchange="build()"><span class="chip">小一 P1</span></label>
+          <label><input type="radio" name="grade" value="小二 P2" onchange="build()"><span class="chip">小二 P2</span></label>
+          <label><input type="radio" name="grade" value="小三 P3" checked onchange="build()"><span class="chip">小三 P3</span></label>
+          <label><input type="radio" name="grade" value="小四 P4" onchange="build()"><span class="chip">小四 P4</span></label>
+          <label><input type="radio" name="grade" value="小五 P5" onchange="build()"><span class="chip">小五 P5</span></label>
+          <label><input type="radio" name="grade" value="小六 P6 (PSLE)" onchange="build()"><span class="chip">小六 P6</span></label>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="q">科目分层 SBB <span class="opt">P5–P6 才分层</span></div>
+        <div class="hint">新加坡从小五（P5）起，部分科目分 Standard（标准）/ Foundation（基础）两层，考纲和难度不同。小四及以下选“未分层”。</div>
+        <div class="opts" id="bandOpts">
+          <label><input type="radio" name="band" value="未分层（P1–P4）" checked onchange="build()"><span class="chip">未分层 (P1–P4)</span></label>
+          <label><input type="radio" name="band" value="Standard 标准" onchange="build()"><span class="chip">Standard 标准</span></label>
+          <label><input type="radio" name="band" value="Foundation 基础" onchange="build()"><span class="chip">Foundation 基础</span></label>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="q">科目 <span class="req">＊必填</span></div>
+        <div class="hint">新加坡小学主要考试科目。科学从小三（P3）才开始考。</div>
+        <div class="opts" id="subjectOpts">
+          <label><input type="radio" name="subject" value="英文 English" onchange="build()"><span class="chip">英文 English</span></label>
+          <label><input type="radio" name="subject" value="数学 Mathematics" checked onchange="build()"><span class="chip">数学 Math</span></label>
+          <label><input type="radio" name="subject" value="华文（母语）Chinese" onchange="build()"><span class="chip">华文 母语</span></label>
+          <label><input type="radio" name="subject" value="科学 Science" onchange="build()"><span class="chip">科学 Science</span></label>
+          <label><input type="radio" name="subject" value="高级华文 Higher Chinese" onchange="build()"><span class="chip">高级华文</span></label>
+          <label><input type="radio" name="subject" value="__other" onchange="build()"><span class="chip">其他…</span></label>
+        </div>
+        <input type="text" id="subjectOther" class="hide" style="margin-top:9px" placeholder="填科目名称" oninput="build()">
+      </div>
+
+      <!-- ===== DAILY-ONLY ===== -->
+      <div class="daily-only">
+        <div class="card">
+          <div class="q">本次复习范围 <span class="opt">建议填</span></div>
+          <div class="hint">这周 / 这月学了什么、要巩固哪块。不清楚就选“上传作业”。</div>
+          <textarea id="d_scope" placeholder="例：这周学了分数加减(通分)和长度单位换算，作业里这两块错得多" oninput="build()"></textarea>
+          <div class="topichints" id="hints_daily"></div>
+          <div class="opts" style="margin-top:9px">
+            <label><input type="checkbox" id="d_upload" onchange="build()"><span class="chip">我会上传孩子的作业/样卷，让 AI 自己看</span></label>
+          </div>
+          <div class="hint" style="margin-top:6px">💡 上传样卷时，AI 会<b>仿它的题型和格式、但换全新内容</b>，不照抄原题。</div>
+        </div>
+
+        <div class="card">
+          <div class="q">复习周期与时长 <span class="req">＊必填</span></div>
+          <div class="opts" id="d_cycle">
+            <label><input type="radio" name="dcycle" value="每周一次，每次约 30 分钟" checked onchange="build()"><span class="chip">每周 · 约30分钟</span></label>
+            <label><input type="radio" name="dcycle" value="每周两三次，每次约 20 分钟" onchange="build()"><span class="chip">每周多次 · 每次20分</span></label>
+            <label><input type="radio" name="dcycle" value="每月一次，分几天做，每天约 20 分钟" onchange="build()"><span class="chip">每月 · 分几天</span></label>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="q">上次错题 / 薄弱点 <span class="opt">最值钱的一栏</span></div>
+          <div class="hint">贴上次做错的题、或反复错的点——这是复习重点的主要依据。可以直接抄题，或选“上传”。</div>
+          <textarea id="d_mistakes" placeholder="照着这样写就行 ↓&#10;例：分数异分母加减没通分就直接加；6 m 8 cm 换成 cm 写成了 68；应用题读不懂题目。"></textarea>
+        </div>
+
+        <div class="card">
+          <div class="q">这次谁来陪 <span class="req">＊必填</span></div>
+          <div class="hint">只看陪的人懂不懂英文。选“不懂英文”时，辅导材料会做成全中文、答案可逐字对照；陪英文科时还会附中文读题对照。</div>
+          <div class="opts" id="d_tutor">
+            <label><input type="radio" name="dtutor" value="陪读的人懂英文" checked onchange="build()"><span class="chip">懂英文</span></label>
+            <label><input type="radio" name="dtutor" value="陪读的人不懂英文" onchange="build()"><span class="chip">不懂英文</span></label>
+            <label><input type="radio" name="dtutor" value="孩子自己做（家长偶尔看）" onchange="build()"><span class="chip">孩子自己做</span></label>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== EXAM-ONLY ===== -->
+      <div class="exam-only hide">
+        <div class="card">
+          <div class="q">考试与范围 <span class="opt">建议填</span></div>
+          <div class="hint">哪场考试、考哪些内容。不清楚就选“上传真卷/成绩”。</div>
+          <textarea id="e_scope" placeholder="例：期中考，范围是分数、长度、几何"></textarea>
+          <div class="opts" style="margin-top:9px">
+            <label><input type="checkbox" id="e_upload" onchange="build()"><span class="chip">我会上传真卷/样卷/错题，让 AI 据此诊断、仿格式出新题</span></label>
+          </div>
+          <div class="hint" style="margin-top:6px">💡 上传样卷时，AI 只把它当<b>参考蓝本</b>：仿它的题型、结构（如一道应用题含 (a)(b)）、分值，但<b>内容全部换成新的</b>，还会推测老师可能怎么变着考。</div>
+        </div>
+
+        <div class="card">
+          <div class="q">距考试还有多久 <span class="req">＊必填</span></div>
+          <div class="hint">时间决定是“抢分冲刺”还是“系统补底”。</div>
+          <div class="opts" id="e_time">
+            <label><input type="radio" name="etime" value="两天" checked onchange="build()"><span class="chip">两天</span></label>
+            <label><input type="radio" name="etime" value="约一周" onchange="build()"><span class="chip">约一周</span></label>
+            <label><input type="radio" name="etime" value="约一个月" onchange="build()"><span class="chip">约一个月</span></label>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="q">考点与题型 <span class="opt">没真卷时填</span></div>
+          <div class="hint">列出会考什么、什么题型。上传了真卷就可以留空。</div>
+          <textarea id="e_topics" placeholder="例：分数加减、单位换算、长度应用题、间隔问题、角与平行垂直"></textarea>
+          <div class="topichints" id="hints_exam"></div>
+        </div>
+
+        <div class="card">
+          <div class="q">这次谁来陪 <span class="req">＊必填</span></div>
+          <div class="hint">只看陪的人懂不懂英文。选“不懂英文”时，辅导材料会做成全中文、答案可逐字对照；陪英文科时还会附中文读题对照。</div>
+          <div class="opts" id="e_tutorOpts">
+            <label><input type="radio" name="etutor" value="陪读的人懂英文" checked onchange="build()"><span class="chip">懂英文</span></label>
+            <label><input type="radio" name="etutor" value="陪读的人不懂英文" onchange="build()"><span class="chip">不懂英文</span></label>
+            <label><input type="radio" name="etutor" value="孩子自己做（家长偶尔看）" onchange="build()"><span class="chip">孩子自己做</span></label>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="q">孩子还有别的情况？ <span class="opt">可留空</span></div>
+          <div class="hint">孩子的固定特点（阅读弱、易粗心、易畏难、双语家庭）已经内置，不用填。这里只写<b>这次特别的</b>补充，比如“这次范围他特别怕应用题”。</div>
+          <input type="text" id="e_traitsOther" placeholder="可留空" oninput="build()">
+        </div>
+      </div>
+
+      <!-- shared: standard -->
+      <div class="card">
+        <div class="q">课程标准 / 教材 <span class="opt">可留空</span></div>
+        <div class="hint">依据的官方大纲或课本。没有就留空，AI 会按一般难度做并如实说明。</div>
+        <input type="text" id="standard" placeholder="例：人教版 / Common Core / 没有" oninput="build()">
+      </div>
+
+    </div>
+
+    <!-- ============ OUTPUT ============ -->
+    <div class="out">
+      <div class="outbar">
+        <h2>生成的提示词 <span class="en">copy this</span></h2>
+        <div style="display:flex; gap:8px;">
+          <button class="dlbtn" id="dlBtn" onclick="downloadPrompt()">⬇ 存文件</button>
+          <button class="copybtn" id="copyBtn" onclick="copyPrompt()">复制</button>
+        </div>
+      </div>
+      <pre class="output" id="output"></pre>
+
+      <!-- upload reminder (feature 5) -->
+      <div class="uploadwarn" id="uploadWarn" style="display:none">
+        <span>📎</span><span>你勾选了“上传作业/卷子”——<b>复制发送时，记得把作业照片或文件一起拖进 AI 的对话框</b>，这样 AI 才能看到、诊断最准。</span>
+      </div>
+
+      <!-- next steps (feature 2) -->
+      <div class="nextbox">
+        <h3>复制之后怎么办？</h3>
+        <ol>
+          <li>打开一个 AI（点下面按钮直达）</li>
+          <li>把刚复制的文字<b>粘贴进去、发送</b></li>
+          <li>它可能先<b>反问你几个问题</b>，照实回答</li>
+          <li>它给你可打印的材料就成了</li>
+        </ol>
+        <div class="ailinks">
+          <a class="ailink" href="https://claude.ai/new" target="_blank" rel="noopener">🟣 打开 Claude（推荐）</a>
+          <a class="ailink" href="https://chatgpt.com" target="_blank" rel="noopener">🟢 打开 ChatGPT</a>
+        </div>
+      </div>
+
+      <!-- quality check (feature 1) -->
+      <div class="qcbox">
+        <h3>⚠ 拿到题先花两分钟检查这 4 点</h3>
+        <p class="qcnote">AI 出的题不等于老师出的题——它偶尔会算错、难度偏、用错解法。给孩子做之前，先自己扫一眼：</p>
+        <label class="qcitem"><input type="checkbox"><span><b>① 答案对不对？</b>随手抽一两道自己做一遍，对上再用。</span></label>
+        <label class="qcitem"><input type="checkbox"><span><b>② 难度合不合适？</b>太简单或有超纲的，直接叫 AI“再难点／再简单点”。</span></label>
+        <label class="qcitem"><input type="checkbox"><span><b>③ 是学校教的解法吗？</b>尤其数学要用 model（画图），不是列方程。不是就叫它改。</span></label>
+        <label class="qcitem"><input type="checkbox"><span><b>④ 几道题其实是一道？</b>只换了数字名字的，叫它“换考法，不是换数字”。</span></label>
+        <p class="qctip">💡 嫌麻烦？提示词已让 AI <b>先出一道样题</b>给你看难度、并<b>自己标出没把握的题</b>——但最后还是你说了算。</p>
+      </div>
+
+      <div class="tipline"><span>🔒</span><span>材料不会写出孩子的任何标签或隐私；辅导方法只写具体做法。你填的内容只存在你自己的浏览器里。</span></div>
+    </div>
+
+  </div>
+
+  <!-- FAQ (feature 7) -->
+  <details class="guide faq" style="margin-top:24px">
+    <summary>❓ 常见问题 <span class="chev">›</span></summary>
+    <div class="gbody">
+      <div class="qa"><div class="qq">AI 反问我问题，怎么办？</div><div class="aa">照实回答就好，就像老师问“孩子哪块最弱”。答不上来的可以说“不确定，你先帮我判断”。</div></div>
+      <div class="qa"><div class="qq">生成的练习卷/PDF 在哪里？</div><div class="aa">在 AI 的回复里。它通常会给一个可下载的文件链接或“预览”，点开就能保存、打印。</div></div>
+      <div class="qa"><div class="qq">可以用免费版 AI 吗？用哪个？</div><div class="aa">可以，建议用 <b>Claude 免费版</b>（claude.ai）——它免费就能生成可下载的 PDF 练习卷，ChatGPT 免费版做这个较吃力。免费版每隔几小时有次数上限，一次做一两份、别贪多即可。</div></div>
+      <div class="qa"><div class="qq">我把作业照片发过去安全吗？</div><div class="aa">主流 AI 都支持上传图片。为稳妥，发之前可以把孩子姓名等信息挡掉——材料本身不需要这些也能做。</div></div>
+      <div class="qa"><div class="qq">填的东西下次还在吗？</div><div class="aa">在。会自动存在你这台设备的浏览器里，下次打开自动带出。想清空可点右上角“清空重填”。</div></div>
+      <div class="qa"><div class="qq">生成的材料太难 / 太简单怎么办？</div><div class="aa">直接告诉 AI“再简单一点”或“再难一点、字大一点”，它会改。也可以把孩子的真实卷子发给它对照难度。</div></div>
+    </div>
+  </details>
+
+  <footer>备考提示词生成器 · 填问卷 → 复制 → 粘贴给 AI · 平时用「日常复习」，临考用「考前冲刺」</footer>
+</div>
+
+<script>
+/* ---------- prompt templates (parameter block gets injected) ---------- */
+function dailyPrompt(P){
+return `你是一位既懂学科教学、又懂陪伴式辅导的资深老师。这是为一名需要支持的孩子做的【日常复习】
+(不是考前冲刺):目标是长期打牢、不遗忘、把反复错的点一点点补上,而非短期抢分。请先分析、
+经我确认后再制作。所有可下载文件渲染成 A4 PDF。
+
+════════ 开场第一步:先向我要材料(很重要) ════════
+在做任何事之前,请先用简单、友好的话主动问我，能不能上传以下材料(有哪样传哪样,没有也没关系):
+① 考纲/教纲(照官方范围出，不跑偏)  ② 课本或相关单元(按孩子实际学的内容和方法出)
+③ 孩子的作业/卷子/错题(照真实题型和难度仿制，最准)。
+请说明:传得越全越准;若我暂时没有,你就按下面参数进行,并如实说明是"按一般难度估计"。
+等我回应后再继续。不要一次问一大串,用一两句话问清即可。
+
+════════ 这个孩子的固定情况(始终据此设计) ════════
+- 阅读能力弱、母语(中文)强、容易求快粗心、容易畏难。
+- 因此:面向孩子的题目降低阅读负担(短句/常见词/重复句式/长题拆成编号要点/配图);
+  强调写过程、算完检查;从易到难先让他体验成功、不打击信心;掺"钩子题"防粗心
+  (孩子卷不标警告,辅导材料里点明钓什么)。
+- 绝不在任何材料写出他的诊断、标签或敏感信息;支持方法只写具体做法、中性表述。
+
+════════ 参数 ════════
+【年级/学段】：${P.grade}
+【科目】：${P.subject}
+【科目分层 SBB】：${P.band}
+【本次复习范围】：${P.scope}
+【复习周期】：${P.cycle}
+【上次错题/薄弱点】：${P.mistakes}
+【课程标准/教材】：${P.standard}
+【这次谁来陪】：${P.tutor}
+
+════════ 新加坡小学本地规范(务必遵循) ════════
+材料要"像本地卷"，对齐 Singapore MOE 教纲与本地学校评估，不要做成他国风格。
+- 数学:解题用 model method(画 model / bar 建模)，不用列方程;高年级用 heuristics
+  (画图、guess-&-check、work backwards、before-after 等)。长答题要求写 model/算式/单位/
+  完整答句(如 "There are 24 books.")，辅导材料要点明本地阅卷格式扣分点(漏单位、漏答句会扣分)。
+- 试卷结构照本地:数学分 Paper 1(不可用计算器,MCQ+短答)与 Paper 2(可用计算器,长答应用题)，
+  标时限与分值;英文分 Paper 1 写作 / Paper 2 语文运用+理解 / Paper 3 听力 / Paper 4 口试。
+- 英文:区分 Grammar/Vocab MCQ、Cloze、Synthesis & Transformation、Comprehension(含 open-ended)、
+  Situational Writing(情境写作)、Composition、Oral(朗读+看图说话/会话)。
+- 华文(母语):按 Singapore MOE 母语体系(汉语拼音、听力、口试/朗读会话、看图写话/作文、
+  本地教材如《欢乐伙伴》)，不是中国大陆语文;词汇与课文以本地为准。
+- 科学(P3 起):按 MOE 主题式大纲(Diversity/Cycles/Systems/Energy/Interactions)，重 process skills
+  与 open-ended 作答。
+- 分层(SBB):P5–P6 按【科目分层】区分 Foundation/Standard，两者考纲、题型、难度不同据此定难度;
+  P1–P4 不分层。
+- 年级深浅:低年级(P1–P2)具象、图多字少、口头为主;高年级(P5–P6)多步推理、PSLE 题型导向。
+- 双语呈现贴合本地双语家庭:面向孩子的题目用英文(华文科除外);给家长的辅导材料可中文/双语。
+
+════════ 关键：辅导人可能不懂英文 ════════
+若【这次谁来陪】为"不懂英文",所有给辅导者的内容必须做到"不懂英文也能陪":
+- 辅导话术、步骤、答案核对说明全部用中文;英文只出现在孩子要读/写的部分。
+- 答案页把正确答案完整写出 + 配中文,让不懂英文的人能逐字对照孩子写得对不对。
+- 判断对错尽量可"照着比对/看图/看数字",少依赖理解英文含义。
+- 专设一节"不懂英文也能陪的方式":指读、计时、照答案逐字对、做对了打勾鼓励、
+  错了先让孩子再看一遍;写成中文步骤。
+- 若本次是英文科:额外给一份"中文读题对照"——把每道题的英文用中文写出大意/读法,
+  让不懂英文的陪读人也能把题目讲给孩子听、知道在问什么。
+
+════════ 日常复习的重心(与考前冲刺不同) ════════
+- 概念巩固 > 抢分技巧:先把本次范围核心概念用最简中文 + 图示再讲一遍,再练。
+- 错题回炉:据【上次错题】把同类型题换个内容再出几道,让他重做直到会。
+- 间隔重复:易忘的点隔几天再练;每天小量(如10分钟),不一次灌完。
+- 滚动循环:每次结束产出"这次还错哪些"小结,作为下次重点。
+- 弱化应试技巧,日常以补牢为主;临近考试再换冲刺版。
+
+════════ 需要产出的文件(量小、可持续) ════════
+1. 本次概念小课(孩子,中文讲+图示):核心概念"是什么/为什么/怎么用"+通用方法。
+2. 针对性小练(孩子):以【上次错题】同类型+本次新内容为主;由易到难、含钩子题、量小。
+3. 陪做手册(辅导者,中文为主,不懂英文也能用):
+   a) 每类题怎么带、先问什么、可照念的中文话术;
+   b) 不懂英文也能陪的方式(指读、计时、对照答案、鼓励);
+   c) 可逐字对照的答案页(答案完整写出+中文,含钩子题钓什么);
+   d) 错题怎么带(不直接报答案,先问哪一步、让孩子自己发现);
+   e) 具体鼓励话术、如何减轻畏难。
+4. 本次小结/下次重点:列出还没掌握的点,作为下次起点。
+5. (可选)每日10分钟巩固卡。
+
+════════ 技术规范 ════════
+- 统一配色;分数/公式规范排版;打印用 -webkit-print-color-adjust:exact 保色。
+- 图形(几何图、bar模型、数轴、流程图、看图卡)用 SVG/代码绘制。
+- 渲染:headless chromium 打印 A4、print_background=True;多份用 PyMuPDF 合并加书签;
+  渲染后逐页栅格化自检,确认图形正确、无跨页。
+- 所有答案先自行验算/核对无误再放入;答案页务必做成"不懂英文者也能逐字对照"。
+
+════════ 样卷处理:只做参考、仿格式换内容、推测老师出题 ════════
+若我上传了样卷/往年卷/练习卷,把它当"蓝本"而非题库:
+- 只借它的"外壳",不抄它的"内容":内容 100% 原创,不与样卷任何一题重复(换情境/数字/人名/问法)。
+- 仿照它的出题格式与结构:题型、题号顺序、Section 划分、每题分值[marks]、
+  以及题目内部结构(例如一道应用题里含 (a)(b) 两小问、先易后难的小题设计)都照着来,
+  让做出来的卷子"长得像"那份样卷。
+- 推测老师可能怎么考:针对同一考点,推测老师常见的变化方向(换情境、换问法、加陷阱、
+  多一步/少一步),据此出"最可能被考到"的变式,而不是只照样卷原样。
+- 若某处拿不准老师的意图,标注出来让我判断,不臆测。
+
+════════ 出题质量与分量(务必遵守) ════════
+- 题量适中:一次够孩子 20–30 分钟完成即可,不要一口气给几十道,压垮孩子。
+- 每道题做完后自己再验算一遍;数字要"算得尽"(除得断、余数正确、单位统一);
+  确保题目问的与答案算的是同一件事。
+- 变式要真换考法:换情境/问法/陷阱,不能只换数字和名字——否则十道题等于一道。
+- 解法必须是孩子在校学的那种(数学用 model method,不用列方程;不使用超纲技巧)。
+- 先给一道样题:在做整套之前,先只出【1 道代表性样题 + 答案】给我看难度是否合适,
+  等我说"可以/再难点/再简单点"后,再出整套。
+- 做完后附一份简短的"给家长的复核提示":列出请家长重点检查的几点
+  (答案、难度、解法是否本地);并主动标出你自己没把握、建议我核对的题。
+
+请先复述你的理解、本次重点(尤其如何用上【上次错题】)、以及产出清单让我确认;
+缺参数先问我,不臆测。确认后先给样题、再逐份制作并给我预览。`;
+}
+
+function examPrompt(P){
+return `你是一位既懂学科教学、又懂应试提分的资深老师。你的任务不是"出一堆题",而是像真正的
+老师那样:先判断学科性质,再诊断学生哪里不会,把概念讲清、搭好由易到难的台阶、用变式巩固,
+最后落到考试拿分。请先分析、经我确认后再制作。所有可下载文件渲染成 A4 PDF。
+
+════════ 开场第一步:先向我要材料(很重要) ════════
+在做任何事之前,请先用简单、友好的话主动问我，能不能上传以下材料(有哪样传哪样,没有也没关系):
+① 考纲/教纲(照官方范围与考点,不跑偏、不超纲)  ② 课本或相关单元(按孩子实际学的内容和方法)
+③ 真卷/成绩分项/错题(照真实题型、难度、版式、分值仿制，最准)。
+请说明:传得越全越准;若我暂时没有,你就按参数进行,并如实声明是"按一般难度估计、非真卷"。
+等我回应后再继续。不要一次问一大串,用一两句话问清即可。
+
+════════ 这个孩子的固定情况(始终据此设计,与成绩无关) ════════
+- 轻度阅读困难、英文阅读弱、母语(中文)强、容易求快粗心、容易畏难;双语家庭。
+- 因此:面向孩子的题目降低阅读负担(短句/常见词/重复句式/长题拆成编号要点/配图);
+  强调写过程、算完检查;从易到难先体验成功、不打击信心;掺"钩子题"防粗心
+  (学生卷不标警告,辅导材料点明钓什么)。
+- 绝不在任何材料写出他的诊断、标签或敏感信息;支持方法只写具体做法、中性表述。
+- 注意:以上是稳定特质,不含具体成绩;各科强弱、这次薄弱点以我当次提供的错题/真卷为准。
+
+════════ 第零步:判断学科性质,选择模式 ════════
+先判断本学科属于哪类,据此决定产出形态(两者兼有则混合):
+- 客观/有标准答案型(数理化、科学、语言客观题、文科知识题)→ "概念+方法+题目+标准答案"。
+- 主观/表达型(写作、口语、开放论述)→ 把"题目+答案+验算"换成"评分量规+范文+修改示范
+  +反馈要点+常见问题",跳过不适用规范。
+- 技能/操作型(演奏、实验、编程实操)→ 提醒纸笔PDF未必合适,改以"步骤示范+检查清单
+  +常见错误+练习计划"为主。
+先说明你判断的学科性质与采用的模式,再继续。
+
+════════ 参数 ════════
+【年级/学段】：${P.grade}
+【科目】：${P.subject}
+【科目分层 SBB】：${P.band}
+【考试与范围】：${P.scope}
+【距考试时间】：${P.time}
+【考点与题型清单】：${P.topics}
+【这次特别补充】：${P.student}
+【这次谁来陪】：${P.tutor}
+【课程标准/教材】：${P.standard}
+
+════════ 新加坡小学本地规范(务必遵循) ════════
+材料要"像本地卷"，对齐 Singapore MOE 教纲与本地学校评估/PSLE，不要做成他国风格。
+- 数学:解题用 model method(画 model / bar 建模)，不用列方程;高年级用 heuristics
+  (画图、guess-&-check、work backwards、before-after 等)。长答题要求写 model/算式/单位/
+  完整答句;辅导材料点明本地阅卷格式扣分点(漏单位、漏答句会扣分)。
+- 试卷结构照本地:数学分 Paper 1(不可用计算器,MCQ+短答)与 Paper 2(可用计算器,长答)，
+  标时限与分值;英文分 Paper 1 写作 / Paper 2 语文运用+理解 / Paper 3 听力 / Paper 4 口试;
+  "全真模拟"须按此结构,而非单张混合卷。
+- 英文:Grammar/Vocab MCQ、Cloze、Synthesis & Transformation、Comprehension(含 open-ended)、
+  Situational Writing、Composition、Oral。
+- 华文(母语):按 Singapore MOE 母语体系(汉语拼音、听力、口试、看图写话/作文、本地教材)，
+  不是中国大陆语文。
+- 科学(P3 起):按 MOE 主题式大纲(Diversity/Cycles/Systems/Energy/Interactions)，重 process skills。
+- 分层(SBB):P5–P6 按【科目分层】区分 Foundation/Standard，据此定考纲、题型与难度;P1–P4 不分层。
+- 年级深浅:低年级具象图多字少;高年级多步推理、PSLE 题型导向。
+- 双语呈现贴合本地双语家庭:面向孩子题目用英文(华文科除外);辅导材料可中文/双语。
+
+════════ 第一步:先诊断,别急着出题 ════════
+1. 错因诊断:据成绩分项/错题/真卷,判断丢分根本原因(不懂概念/读不懂题/粗心/不会答题格式)。
+   信息不足先问我,不臆测。
+2. 诊断到知识点:板块级信息不够,主动产出一份简短"诊断前测"(每知识点1-2题、标名),
+   据此定位具体知识点再配重点。
+3. 按性价比+时间排序:优先"分值高+当前低+短期可提升";短期难提升的标注,时间紧则降级或跳过。
+4. 产出清单:列出将做哪几份、各解决什么、优先级,经我确认再开始。
+
+════════ 教学法原则 ════════
+- 先教后练:每考点先给概念讲解(是什么/为什么/怎么用),不只给题和答案。
+- 教可迁移方法:显性教通用方法/思维模型(画bar、四步读题、答题句型、写作模板)。
+- 搭脚手架:同一知识点按 示范→半扶半放→独立练→变式 排布,每个新技能至少一道范例。
+- 变式防死记:每考点给变式(换情境/问法/数字);区分"钩子题(防粗心)"与"变式题(防死记)"。
+- 常见误区:每考点附典型错误概念+为什么+怎么纠正。
+- 难度分层:每题标 基础/中等/挑战,按真实难度比例配置。
+- 建立信心:由易到难先体验成功;不用高难度打击信心。
+- 重复巩固:易忘内容配可重复练习+每日小量巩固。
+- 课标对齐与诚实声明:尽量对齐教材;如实声明依据与局限,不冒充官方。
+
+════════ 学生情况适配 ════════
+- 绝不写出学生诊断、标签或敏感信息;支持方法只写具体做法、中性表述。
+- 易粗心:强调写过程、算完检查;掺钩子题(学生卷不标警告,辅导材料点明钓什么)。
+- 阅读弱:短句/常见词/重复句式;长题拆成"Read the facts+编号要点";配图;给"解题四步"。
+- 辅导可执行性:给辅导者的内容要"拿起来就能照做",给话术、步骤、示范。
+- 若【这次谁来陪】为"不懂英文":给辅导者的内容全部用中文;答案页把正确答案完整写出+配中文,
+  让不懂英文的人能逐字对照;并给一节中文的"陪读方式"(指读、计时、照答案对、鼓励)。
+  若本次是英文科,额外给一份"中文读题对照",让不懂英文的陪读人也能把题目讲给孩子听。
+- 排版紧凑但每道题不跨页;字号适中偏大;考点/陷阱用颜色区分。
+
+════════ 需要产出的文件(按诊断与时间增减) ════════
+0. 诊断前测(学生):按知识点细分,定位薄弱点。
+1. 概念讲解+方法卡(学生)。
+2. 练习卷(学生):按薄弱点配比;含 示范→半扶→独立→变式 梯度;标难度;掺钩子题。
+3. 模拟卷(学生,全真):题号/题型/版式/分值仿目标考试,内容全部原创;附答案页;并入同一PDF。
+4. 辅导材料(辅导者,可双语):逐题解析+话术+陪读方法(中性无标签)+错题讲评法
+   +常见误区纠正+鼓励话术。
+5. 考试拿分策略(学生+家长):不留空、蒙题法、答题格式、时间分配、先做会的、当天要记的话。
+6. 整合文件:合并成带封面/目录/书签的PDF;写明谁用哪份+分天辅导计划。
+7. (考后可选)错因复盘+下一步计划。
+
+════════ 技术规范 ════════
+- 统一配色;分数/公式规范排版;打印 -webkit-print-color-adjust:exact 保色。
+- 图形用 SVG/代码绘制。渲染:headless chromium 打印 A4、print_background=True;
+  多份用 PyMuPDF 合并加书签;渲染后逐页栅格化自检,确认无跨页、图形正确。
+- 所有答案与讲解先自行验算/核对无误再放入,不确定处标注存疑。
+
+════════ 样卷处理:只做参考、仿格式换内容、推测老师出题 ════════
+若我上传了真卷/样卷/往年卷,把它当"蓝本"而非题库:
+- 只借它的"外壳",不抄它的"内容":内容 100% 原创,不与样卷任何一题重复(换情境/数字/人名/问法)。
+- 仿照它的出题格式与结构:题型、题号顺序、Section 划分、每题分值[marks]、
+  题目内部结构(例如一道应用题里含 (a)(b) 两小问、先易后难的小题设计)、
+  以及本地试卷结构(Paper 1/2 等)都照着来,让做出来的卷子"长得像"那份样卷。
+- 推测老师可能怎么考:针对同一考点,推测老师常见的变化方向(换情境、换问法、加陷阱、
+  多一步/少一步、把两个考点合成一题),据此出"最可能被考到"的变式,而非照样卷原样。
+- 若某处拿不准老师意图,标注出来让我判断,不臆测。
+
+════════ 出题质量与分量(务必遵守) ════════
+- 题量适中:每份练习一次够孩子 20–30 分钟完成即可,不要一口气堆几十道。
+- 每道题做完后自己再验算一遍;数字要"算得尽"(除得断、余数正确、单位统一);
+  确保题目问的与答案算的是同一件事;model method 图示与答案一致。
+- 变式要真换考法:换情境/问法/陷阱,不能只换数字和名字。
+- 解法必须是孩子在校学的那种(数学用 model method,不用列方程;不使用超纲技巧)。
+- 先给一道样题:在做整套之前,先只出【1 道代表性样题 + 答案】给我看难度是否合适,
+  等我确认后再出整套。
+- 每份产出后附"给家长的复核提示":列出请家长重点检查的几点(答案、难度、解法是否本地),
+  并主动标出你没把握、建议我核对的题。
+
+请先完成"第零步·判断学科性质"与"第一步·诊断",复述理解、采用模式与产出清单让我确认;
+缺参数先问我,不臆测。确认后先给样题、再逐份制作并给我预览。`;
+}
+
+/* ---------- state & helpers ---------- */
+let MODE='daily';
+function setMode(m){
+  MODE=m;
+  document.getElementById('mode-daily').classList.toggle('active', m==='daily');
+  document.getElementById('mode-exam').classList.toggle('active', m==='exam');
+  document.getElementById('mode-daily').setAttribute('aria-selected', m==='daily');
+  document.getElementById('mode-exam').setAttribute('aria-selected', m==='exam');
+  toggleSections(m);
+  build();
+}
+function qsa(sel){ return Array.prototype.slice.call(document.querySelectorAll(sel)); }
+function toggleSections(m){
+  qsa('.daily-only').forEach(function(e){ e.classList.toggle('hide', m!=='daily'); });
+  qsa('.exam-only').forEach(function(e){ e.classList.toggle('hide', m!=='exam'); });
+}
+function val(id){ var e=document.getElementById(id); return e ? e.value.trim() : ''; }
+function radio(name){ var e=document.querySelector('input[name="'+name+'"]:checked'); return e ? e.value : ''; }
+function subject(){
+  const s = radio('subject');
+  if(s==='__other'){ document.getElementById('subjectOther').classList.remove('hide'); return val('subjectOther') || '（请填科目）'; }
+  document.getElementById('subjectOther').classList.add('hide'); return s;
+}
+function checks(id){ return qsa('#'+id+' input:checked').map(function(e){ return e.value; }); }
+
+/* ---------- Singapore-primary common topics per subject ---------- */
+const TOPICS = {
+  '英文 English': ['Grammar 语法','Vocabulary 词汇','Comprehension 阅读理解','Open-ended 开放题',
+    'Cloze 填空','Synthesis 句子改写','Editing 改错','Composition 作文','Situational Writing 情境写作','Oral 口试'],
+  '数学 Mathematics': ['Whole Numbers 整数','Fractions 分数','Decimals 小数','Money 钱','Length 长度',
+    'Mass 质量','Volume 容量','Time 时间','Area & Perimeter 面积周长','Angles 角','Lines 平行垂直',
+    'Shapes 图形','Bar Graphs 条形图','Word Problems 应用题(model/bar)'],
+  '华文（母语）Chinese': ['识字/汉语拼音','词语','词语搭配','看图选词','组句成段','阅读理解','作文/写话','听力','口试'],
+  '高级华文 Higher Chinese': ['词语','阅读理解(较深)','组句成段','作文','古诗/成语','听力','口试'],
+  '科学 Science': ['Diversity 多样性(生物/材料)','Living/Non-living 生物与非生物','Materials 材料',
+    'Life Cycles 生命周期','Classification 分类','Plants 植物','Magnets 磁力','Light 光','Heat 热',
+    'Forces 力','Human/Plant Systems 人体/植物系统','Matter 物质三态','Energy 能量'],
+};
+function activeTopicField(){ return MODE==='daily' ? 'd_scope' : 'e_topics'; }
+function activeHintBox(){ return MODE==='daily' ? 'hints_daily' : 'hints_exam'; }
+function renderTopicHints(){
+  const box = document.getElementById(activeHintBox());
+  const other = document.getElementById(activeHintBox()==='hints_daily'?'hints_exam':'hints_daily');
+  if(other) other.innerHTML=''; // clear the inactive one
+  if(!box) return;
+  const s = radio('subject');
+  const list = TOPICS[s];
+  if(!list){ box.innerHTML=''; return; }
+  const fieldEmpty = !val(activeTopicField());
+  const nudge = fieldEmpty
+    ? '<div class="thlabel" style="color:#8a6508"><b>👉 建议先点几个考点</b>（或上传作业），AI 出题会更准。</div>'
+    : '<div class="thlabel"><b>常见考点</b>（点一下加入，仅供参考，按孩子实际调整）</div>';
+  box.innerHTML = nudge + '<div class="thwrap">'
+    + list.map(t=>`<span class="thchip" onclick="insertTopic('${t.replace(/'/g,"\\'")}')">${t}</span>`).join('')
+    + '</div>';
+}
+function insertTopic(t){
+  const ta = document.getElementById(activeTopicField());
+  const cur = ta.value.trim();
+  // avoid duplicate
+  if(cur.split(/[、,，;；]\s*/).map(x=>x.trim()).includes(t)) return;
+  ta.value = cur ? cur + '、' + t : t;
+  build();
+}
+
+/* ---------- build ---------- */
+function build(){
+  renderTopicHints();
+  const grade = radio('grade') || '（未选年级，请按科目/范围合理假设并让我确认）';
+  const band  = radio('band') || '未分层（P1–P4）';
+  const subj  = subject();
+  const std   = val('standard') || '（没有，按本地一般难度即可，并如实声明依据与局限）';
+  let out;
+
+  if(MODE==='daily'){
+    let scope = val('d_scope');
+    if(document.getElementById('d_upload').checked) scope = (scope? scope+'；' : '') + '我会上传孩子的作业/卷子，请据此判断薄弱点';
+    if(!scope) scope = '（未填，我会上传作业或稍后补充）';
+    let mistakes = val('d_mistakes') || '（暂无，请先出一份简短诊断/前测帮我找薄弱点）';
+    out = dailyPrompt({
+      grade, subject:subj, band, standard:std,
+      scope,
+      cycle: radio('dcycle'),
+      mistakes,
+      tutor: radio('dtutor'),
+    });
+  } else {
+    let scope = val('e_scope');
+    if(document.getElementById('e_upload').checked) scope = (scope? scope+'；' : '') + '我会上传真卷/成绩分项/错题，请据此诊断';
+    if(!scope) scope = '（未填，我会上传真卷/成绩，或请你按范围推断并让我确认）';
+    let topics = val('e_topics') || '（没有真卷时——请按范围推断考点并让我确认）';
+    let student = val('e_traitsOther') || '（无特别补充；固定特质已内置）';
+    let tutor = radio('etutor');
+    out = examPrompt({
+      grade, subject:subj, band, standard:std,
+      scope, time: radio('etime'), topics, student, tutor,
+    });
+  }
+  document.getElementById('output').textContent = out;
+
+  // upload reminder (feature 5)
+  const upChecked = (MODE==='daily') ? document.getElementById('d_upload').checked
+                                     : document.getElementById('e_upload').checked;
+  document.getElementById('uploadWarn').style.display = upChecked ? 'flex' : 'none';
+
+  saveState(); // feature 1: autosave
+}
+
+/* ---------- feature 1: save / restore ---------- */
+const LS_KEY = 'study_prompt_builder_v1';
+const TEXT_IDS = ['subjectOther','d_scope','d_mistakes','e_scope','e_topics','e_traitsOther','standard'];
+const RADIO_NAMES = ['grade','band','subject','dcycle','dtutor','etime','etutor'];
+const CHECK_IDS = ['d_upload','e_upload'];
+function saveState(){
+  try{
+    const s = {mode:MODE, text:{}, radio:{}, check:{}, traits:[]};
+    TEXT_IDS.forEach(id=>{ const e=document.getElementById(id); if(e) s.text[id]=e.value; });
+    RADIO_NAMES.forEach(n=>{ s.radio[n]=radio(n); });
+    CHECK_IDS.forEach(id=>{ const e=document.getElementById(id); if(e) s.check[id]=e.checked; });
+    localStorage.setItem(LS_KEY, JSON.stringify(s));
+  }catch(e){}
+}
+function restoreState(){
+  let s; try{ s = JSON.parse(localStorage.getItem(LS_KEY)); }catch(e){}
+  if(!s) return false;
+  TEXT_IDS.forEach(id=>{ const e=document.getElementById(id); if(e && s.text && s.text[id]!=null) e.value=s.text[id]; });
+  RADIO_NAMES.forEach(function(n){ var v=s.radio&&s.radio[n]; if(v){ var el=qsa('input[name="'+n+'"]').find(function(e){ return e.value===v; }); if(el) el.checked=true; } });
+  CHECK_IDS.forEach(id=>{ const e=document.getElementById(id); if(e && s.check) e.checked=!!s.check[id]; });
+  if(s.mode) MODE = s.mode;
+  return true;
+}
+function resetAll(){
+  if(!confirm('确定清空所有已填内容、重新开始吗？')) return;
+  try{ localStorage.removeItem(LS_KEY); }catch(e){}
+  location.reload();
+}
+
+/* ---------- feature 6: download as .txt ---------- */
+function downloadPrompt(){
+  const text = document.getElementById('output').textContent;
+  const subj = (radio('subject')==='__other' ? (val('subjectOther')||'科目') : radio('subject').split(' ')[0]);
+  const name = `备考提示词_${subj}_${MODE==='daily'?'日常复习':'考前冲刺'}.txt`;
+  const blob = new Blob([text], {type:'text/plain;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); document.body.removeChild(a); }, 100);
+  const btn=document.getElementById('dlBtn'); const t=btn.textContent; btn.textContent='已保存 ✓'; setTimeout(()=>btn.textContent=t,1600);
+}
+
+/* ---------- copy ---------- */
+function copyPrompt(){
+  const text = document.getElementById('output').textContent;
+  const btn = document.getElementById('copyBtn');
+  const done = ()=>{ btn.textContent='已复制 ✓'; btn.classList.add('done'); setTimeout(()=>{btn.textContent='复制'; btn.classList.remove('done');},1600); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done).catch(fallback);
+  } else fallback();
+  function fallback(){
+    const ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); done(); }catch(e){ alert('复制失败，请手动选择文本复制。'); }
+    document.body.removeChild(ta);
+  }
+}
+
+/* ---------- init: restore then render ---------- */
+(function initApp(){
+  try{ restoreState(); }catch(e){}
+  // delegated listeners: any input in the form rebuilds & autosaves (covers fields without inline handlers)
+  var formEl = document.querySelector('.form');
+  if(formEl){ formEl.addEventListener('input', build); formEl.addEventListener('change', build); }
+  // apply restored mode to the toggle UI without wiping fields
+  document.getElementById('mode-daily').classList.toggle('active', MODE==='daily');
+  document.getElementById('mode-exam').classList.toggle('active', MODE==='exam');
+  document.getElementById('mode-daily').setAttribute('aria-selected', MODE==='daily');
+  document.getElementById('mode-exam').setAttribute('aria-selected', MODE==='exam');
+  toggleSections(MODE);
+  // backup binding (some browsers/preview modes don't run inline onclick reliably)
+  qsa('.mode').forEach(function(btn){
+    var handler = function(){ setMode(btn.getAttribute('data-mode')); };
+    btn.addEventListener('click', handler);
+  });
+  // show "other subject" box if needed
+  if(radio('subject')==='__other') document.getElementById('subjectOther').classList.remove('hide');
+  build();
+})();
+</script>
+</body>
+</html>
